@@ -130,6 +130,23 @@ th, td {
 th {
     background-color: #f8f9fa;
     font-weight: bold;
+    white-space: nowrap;
+}
+
+.no-data {
+    text-align: center;
+    padding: 2rem;
+    color: #666;
+    font-style: italic;
+}
+
+.error-message {
+    color: #dc3545;
+    background-color: #ffe6e6;
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+    text-align: center;
 }
 
 .search-container {

@@ -1,11 +1,11 @@
+import { tdxAuth } from './tdx-auth.js';
+import { airlines } from './airlines.js';
+import { airports } from './airports.js';
+
 // 全域變數
 let currentAirport = '';
 let currentTab = 'realtime';
 let currentFlightType = 'arrival';
-
-// API 設定
-const API_BASE_URL = 'https://tdx.transportdata.tw/api/basic/v2/Air';
-const API_KEY = 'YOUR_API_KEY'; // 請替換成您的 API 金鑰
 
 // 自動更新設定
 const AUTO_UPDATE_INTERVAL = 5 * 60 * 1000; // 5分鐘
@@ -134,17 +134,11 @@ async function updateAirportData() {
 async function updateFlightData() {
     if (!currentAirport) return;
     
-    const endpoint = currentFlightType === 'arrival' ? 'FIDS/Arrival' : 'FIDS/Departure';
     try {
-        const response = await fetch(`${API_BASE_URL}/${endpoint}/${currentAirport}?$format=JSON`, {
-            headers: {
-                'Authorization': `Bearer ${API_KEY}`
-            }
-        });
+        const data = await (currentFlightType === 'arrival' 
+            ? tdxAuth.getArrivalFlights(currentAirport)
+            : tdxAuth.getDepartureFlights(currentAirport));
         
-        if (!response.ok) throw new Error('API 請求失敗');
-        
-        const data = await response.json();
         displayFlightData(data);
     } catch (error) {
         console.error('獲取航班資料時發生錯誤:', error);
@@ -154,20 +148,11 @@ async function updateFlightData() {
 
 // 更新定期航班資料
 async function updateScheduleData() {
-    // 實作定期航班查詢邏輯
     const scheduleContainer = document.getElementById('schedule-info');
     scheduleContainer.innerHTML = '<p>定期航班資料載入中...</p>';
     
     try {
-        const response = await fetch(`${API_BASE_URL}/Schedule/Station/${currentAirport}?$format=JSON`, {
-            headers: {
-                'Authorization': `Bearer ${API_KEY}`
-            }
-        });
-        
-        if (!response.ok) throw new Error('API 請求失敗');
-        
-        const data = await response.json();
+        const data = await tdxAuth.getScheduleFlights(currentAirport);
         displayScheduleData(data);
     } catch (error) {
         console.error('獲取定期航班資料時發生錯誤:', error);
@@ -183,15 +168,7 @@ async function searchAirlineFlights(airlineCode) {
     resultsContainer.innerHTML = '<p>搜尋中...</p>';
     
     try {
-        const response = await fetch(`${API_BASE_URL}/FIDS/Airline/${currentAirport}/${airlineCode}?$format=JSON`, {
-            headers: {
-                'Authorization': `Bearer ${API_KEY}`
-            }
-        });
-        
-        if (!response.ok) throw new Error('API 請求失敗');
-        
-        const data = await response.json();
+        const data = await tdxAuth.getAirlineFlights(currentAirport, airlineCode);
         displayAirlineResults(data);
     } catch (error) {
         console.error('搜尋航空公司航班時發生錯誤:', error);
@@ -208,20 +185,42 @@ async function updateWeatherData() {
     // 使用 OpenWeather API 或其他天氣服務
 }
 
+// 格式化日期時間
+function formatDateTime(dateTimeStr) {
+    if (!dateTimeStr) return '-';
+    const date = new Date(dateTimeStr);
+    return date.toLocaleString('zh-TW', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+}
+
 // 顯示航班資料
 function displayFlightData(flights) {
     const tableBody = document.getElementById('flight-data');
     tableBody.innerHTML = '';
     
+    if (!Array.isArray(flights) || flights.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="6" class="no-data">目前沒有航班資料</td></tr>';
+        return;
+    }
+    
     flights.forEach(flight => {
+        if (!flight.AirlineID || !flight.FlightNumber) return;
+        
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${flight.FlightNumber}</td>
-            <td>${flight.Airline}</td>
-            <td>${currentFlightType === 'arrival' ? flight.DepartureAirport : flight.ArrivalAirport}</td>
-            <td>${currentFlightType === 'arrival' ? flight.ScheduledArrivalTime : flight.ScheduledDepartureTime}</td>
+            <td>${flight.AirlineID}${flight.FlightNumber}</td>
+            <td>${airlines[flight.AirlineID] || '-'} (${flight.AirlineID || '-'})</td>
+            <td>${airports[flight.ArrivalAirportID] || '-'} (${flight.ArrivalAirportID || '-'})</td>
+            <td>${currentFlightType === 'arrival' ? 
+                formatDateTime(flight.ScheduleArrivalTime) : 
+                formatDateTime(flight.ScheduleDepartureTime)}</td>
             <td>${flight.Terminal || '-'}/${flight.Gate || '-'}</td>
-            <td>${getFlightStatus(flight.Status)}</td>
+            <td>${getFlightStatus(flight.FlightStatus)}</td>
         `;
         tableBody.appendChild(row);
     });
@@ -230,41 +229,102 @@ function displayFlightData(flights) {
 // 顯示定期航班資料
 function displayScheduleData(schedules) {
     const scheduleContainer = document.getElementById('schedule-info');
-    // 實作定期航班顯示邏輯
+    
+    if (!Array.isArray(schedules) || schedules.length === 0) {
+        scheduleContainer.innerHTML = '<p class="no-data">目前沒有定期航班資料</p>';
+        return;
+    }
+
+    let html = `
+        <table>
+            <thead>
+                <tr>
+                    <th>航班編號</th>
+                    <th>航空公司</th>
+                    <th>目的地</th>
+                    <th>出發時間</th>
+                    <th>抵達時間</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    schedules.forEach(schedule => {
+        if (!schedule.AirlineID || !schedule.FlightNumber) return;
+        
+        html += `
+            <tr>
+                <td>${schedule.AirlineID}${schedule.FlightNumber}</td>
+                <td>${airlines[schedule.AirlineID] || '-'} (${schedule.AirlineID || '-'})</td>
+                <td>${airports[schedule.ArrivalAirportID] || '-'} (${schedule.ArrivalAirportID || '-'})</td>
+                <td>${formatDateTime(schedule.DepartureTime)}</td>
+                <td>${formatDateTime(schedule.ArrivalTime)}</td>
+            </tr>
+        `;
+    });
+
+    html += '</tbody></table>';
+    scheduleContainer.innerHTML = html;
 }
 
 // 顯示航空公司搜尋結果
 function displayAirlineResults(flights) {
     const resultsContainer = document.getElementById('airline-results');
-    if (flights.length === 0) {
-        resultsContainer.innerHTML = '<p>沒有找到符合的航班</p>';
+    
+    if (!Array.isArray(flights) || flights.length === 0) {
+        resultsContainer.innerHTML = '<p class="no-data">沒有找到符合的航班</p>';
         return;
     }
     
-    let html = '<table><thead><tr><th>航班編號</th><th>目的地</th><th>預定時間</th><th>狀態</th></tr></thead><tbody>';
+    let html = `
+        <table>
+            <thead>
+                <tr>
+                    <th>航班編號</th>
+                    <th>航空公司</th>
+                    <th>目的地</th>
+                    <th>時間</th>
+                    <th>航廈/登機門</th>
+                    <th>狀態</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
     flights.forEach(flight => {
+        if (!flight.AirlineID || !flight.FlightNumber) return;
+        
         html += `
             <tr>
-                <td>${flight.FlightNumber}</td>
-                <td>${flight.ArrivalAirport}</td>
-                <td>${flight.ScheduledArrivalTime}</td>
-                <td>${getFlightStatus(flight.Status)}</td>
+                <td>${flight.AirlineID}${flight.FlightNumber}</td>
+                <td>${airlines[flight.AirlineID] || '-'} (${flight.AirlineID || '-'})</td>
+                <td>${airports[flight.ArrivalAirportID] || '-'} (${flight.ArrivalAirportID || '-'})</td>
+                <td>${formatDateTime(flight.ScheduleDepartureTime)}</td>
+                <td>${flight.Terminal || '-'}/${flight.Gate || '-'}</td>
+                <td>${getFlightStatus(flight.FlightStatus)}</td>
             </tr>
         `;
     });
+    
     html += '</tbody></table>';
     resultsContainer.innerHTML = html;
 }
 
 // 獲取航班狀態中文說明
 function getFlightStatus(status) {
+    if (!status) return '-';
+    
     const statusMap = {
-        'ON TIME': '準時',
-        'DELAYED': '延誤',
-        'BOARDING': '登機中',
-        'DEPARTED': '已起飛',
-        'ARRIVED': '已抵達',
-        'CANCELLED': '取消'
+        'Scheduled': '準時',
+        'Delayed': '延誤',
+        'Boarding': '登機中',
+        'Departed': '已起飛',
+        'Arrived': '已抵達',
+        'Cancelled': '取消',
+        'Last Call': '最後登機',
+        'Check-in': '報到中',
+        'In Flight': '飛行中',
+        'Approaching': '即將抵達'
     };
     return statusMap[status] || status;
 }
