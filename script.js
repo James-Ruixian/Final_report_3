@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeTabButtons();
     initializeFlightTypeButtons();
     initializeAirlineSearch();
+    initializeSeatsSearch();
     startAutoUpdate();
 });
 
@@ -190,12 +191,53 @@ function formatDateTime(dateTimeStr) {
     if (!dateTimeStr) return '-';
     const date = new Date(dateTimeStr);
     return date.toLocaleString('zh-TW', {
-        month: '2-digit',
-        day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
         hour12: false
     });
+}
+
+function formatDate(dateTimeStr) {
+    if (!dateTimeStr) return '-';
+    const date = new Date(dateTimeStr);
+    return date.toLocaleString('zh-TW', {
+        month: '2-digit',
+        day: '2-digit'
+    });
+}
+
+function groupFlightsByDate(flights) {
+    // 先排序航班
+    flights.sort((a, b) => {
+        const timeA = a.ScheduleDepartureTime || a.ScheduleArrivalTime;
+        const timeB = b.ScheduleDepartureTime || b.ScheduleArrivalTime;
+        return new Date(timeA) - new Date(timeB);
+    });
+
+    const groups = {};
+    flights.forEach(flight => {
+        const date = flight.ScheduleDepartureTime ? 
+            formatDate(flight.ScheduleDepartureTime) :
+            formatDate(flight.ScheduleArrivalTime);
+        if (!groups[date]) {
+            groups[date] = [];
+        }
+        groups[date].push(flight);
+    });
+
+    // 將日期轉換為有序的鍵值對陣列
+    const orderedGroups = Object.entries(groups)
+        .sort(([dateA], [dateB]) => {
+            const [monthA, dayA] = dateA.split('/').map(Number);
+            const [monthB, dayB] = dateB.split('/').map(Number);
+            return monthA === monthB ? dayA - dayB : monthA - monthB;
+        })
+        .reduce((obj, [key, value]) => {
+            obj[key] = value;
+            return obj;
+        }, {});
+
+    return orderedGroups;
 }
 
 // 顯示航班資料
@@ -207,22 +249,33 @@ function displayFlightData(flights) {
         tableBody.innerHTML = '<tr><td colspan="6" class="no-data">目前沒有航班資料</td></tr>';
         return;
     }
+
+    const groupedFlights = groupFlightsByDate(flights);
     
-    flights.forEach(flight => {
-        if (!flight.AirlineID || !flight.FlightNumber) return;
-        
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${flight.AirlineID}${flight.FlightNumber}</td>
-            <td>${airlines[flight.AirlineID] || '-'} (${flight.AirlineID || '-'})</td>
-            <td>${airports[flight.ArrivalAirportID] || '-'} (${flight.ArrivalAirportID || '-'})</td>
-            <td>${currentFlightType === 'arrival' ? 
-                formatDateTime(flight.ScheduleArrivalTime) : 
-                formatDateTime(flight.ScheduleDepartureTime)}</td>
-            <td>${flight.Terminal || '-'}/${flight.Gate || '-'}</td>
-            <td>${getFlightStatus(flight.FlightStatus)}</td>
-        `;
-        tableBody.appendChild(row);
+    Object.entries(groupedFlights).forEach(([date, dateFlights]) => {
+        // 添加日期標題行
+        const dateHeader = document.createElement('tr');
+        dateHeader.innerHTML = `<td colspan="6" class="date-header">${date} 月/日</td>`;
+        tableBody.appendChild(dateHeader);
+
+        // 添加該日期的航班資料
+        dateFlights.forEach(flight => {
+            if (!flight.AirlineID || !flight.FlightNumber) return;
+            
+            const row = document.createElement('tr');
+            const status = getFlightStatus(flight.FlightStatus);
+            row.innerHTML = `
+                <td>${flight.AirlineID}${flight.FlightNumber}</td>
+                <td>${airlines[flight.AirlineID] || '-'} (${flight.AirlineID || '-'})</td>
+                <td>${airports[flight.ArrivalAirportID] || '-'} (${flight.ArrivalAirportID || '-'})</td>
+                <td>${currentFlightType === 'arrival' ? 
+                    formatDateTime(flight.ScheduleArrivalTime) : 
+                    formatDateTime(flight.ScheduleDepartureTime)}</td>
+                <td>${flight.Terminal || '-'}/${flight.Gate || '-'}</td>
+                <td class="flight-status ${status.class}">${status.text}</td>
+            `;
+            tableBody.appendChild(row);
+        });
     });
 }
 
@@ -234,6 +287,9 @@ function displayScheduleData(schedules) {
         scheduleContainer.innerHTML = '<p class="no-data">目前沒有定期航班資料</p>';
         return;
     }
+
+    // 按日期分組
+    const groupedSchedules = groupFlightsByDate(schedules);
 
     let html = `
         <table>
@@ -249,18 +305,23 @@ function displayScheduleData(schedules) {
             <tbody>
     `;
 
-    schedules.forEach(schedule => {
-        if (!schedule.AirlineID || !schedule.FlightNumber) return;
-        
-        html += `
-            <tr>
-                <td>${schedule.AirlineID}${schedule.FlightNumber}</td>
-                <td>${airlines[schedule.AirlineID] || '-'} (${schedule.AirlineID || '-'})</td>
-                <td>${airports[schedule.ArrivalAirportID] || '-'} (${schedule.ArrivalAirportID || '-'})</td>
-                <td>${formatDateTime(schedule.DepartureTime)}</td>
-                <td>${formatDateTime(schedule.ArrivalTime)}</td>
-            </tr>
-        `;
+    Object.entries(groupedSchedules).forEach(([date, dateSchedules]) => {
+        // 添加日期標題行
+        html += `<tr><td colspan="5" class="date-header">${date} 月/日</td></tr>`;
+
+        dateSchedules.forEach(schedule => {
+            if (!schedule.AirlineID || !schedule.FlightNumber) return;
+            
+            html += `
+                <tr>
+                    <td>${schedule.AirlineID}${schedule.FlightNumber}</td>
+                    <td>${airlines[schedule.AirlineID] || '-'} (${schedule.AirlineID || '-'})</td>
+                    <td>${airports[schedule.ArrivalAirportID] || '-'} (${schedule.ArrivalAirportID || '-'})</td>
+                    <td>${formatDateTime(schedule.DepartureTime)}</td>
+                    <td>${formatDateTime(schedule.ArrivalTime)}</td>
+                </tr>
+            `;
+        });
     });
 
     html += '</tbody></table>';
@@ -275,6 +336,9 @@ function displayAirlineResults(flights) {
         resultsContainer.innerHTML = '<p class="no-data">沒有找到符合的航班</p>';
         return;
     }
+
+    // 按日期分組
+    const groupedFlights = groupFlightsByDate(flights);
     
     let html = `
         <table>
@@ -291,48 +355,115 @@ function displayAirlineResults(flights) {
             <tbody>
     `;
     
-    flights.forEach(flight => {
-        if (!flight.AirlineID || !flight.FlightNumber) return;
-        
-        html += `
-            <tr>
-                <td>${flight.AirlineID}${flight.FlightNumber}</td>
-                <td>${airlines[flight.AirlineID] || '-'} (${flight.AirlineID || '-'})</td>
-                <td>${airports[flight.ArrivalAirportID] || '-'} (${flight.ArrivalAirportID || '-'})</td>
-                <td>${formatDateTime(flight.ScheduleDepartureTime)}</td>
-                <td>${flight.Terminal || '-'}/${flight.Gate || '-'}</td>
-                <td>${getFlightStatus(flight.FlightStatus)}</td>
-            </tr>
-        `;
+    Object.entries(groupedFlights).forEach(([date, dateFlights]) => {
+        // 添加日期標題行
+        html += `<tr><td colspan="6" class="date-header">${date} 月/日</td></tr>`;
+
+        dateFlights.forEach(flight => {
+            if (!flight.AirlineID || !flight.FlightNumber) return;
+            
+            html += `
+                <tr>
+                    <td>${flight.AirlineID}${flight.FlightNumber}</td>
+                    <td>${airlines[flight.AirlineID] || '-'} (${flight.AirlineID || '-'})</td>
+                    <td>${airports[flight.ArrivalAirportID] || '-'} (${flight.ArrivalAirportID || '-'})</td>
+                    <td>${formatDateTime(flight.ScheduleDepartureTime)}</td>
+                    <td>${flight.Terminal || '-'}/${flight.Gate || '-'}</td>
+                    <td class="flight-status ${getFlightStatus(flight.FlightStatus).class}">${getFlightStatus(flight.FlightStatus).text}</td>
+                </tr>
+            `;
+        });
     });
     
     html += '</tbody></table>';
     resultsContainer.innerHTML = html;
 }
 
-// 獲取航班狀態中文說明
+// 獲取航班狀態中文說明與樣式
 function getFlightStatus(status) {
-    if (!status) return '-';
+    if (!status) return { text: '-', class: '' };
     
-    const statusMap = {
-        'Scheduled': '準時',
-        'Delayed': '延誤',
-        'Boarding': '登機中',
-        'Departed': '已起飛',
-        'Arrived': '已抵達',
-        'Cancelled': '取消',
-        'Last Call': '最後登機',
-        'Check-in': '報到中',
-        'In Flight': '飛行中',
-        'Approaching': '即將抵達'
+    const statusConfig = {
+        'Scheduled': { text: '準時', class: 'status-ontime' },
+        'Delayed': { text: '延誤', class: 'status-delayed' },
+        'Boarding': { text: '登機中', class: 'status-boarding' },
+        'Departed': { text: '已起飛', class: 'status-departed' },
+        'Arrived': { text: '已抵達', class: 'status-arrived' },
+        'Cancelled': { text: '取消', class: 'status-cancelled' },
+        'Last Call': { text: '最後登機', class: 'status-boarding' },
+        'Check-in': { text: '報到中', class: 'status-checkin' },
+        'In Flight': { text: '飛行中', class: 'status-inflight' },
+        'Approaching': { text: '即將抵達', class: 'status-approaching' }
     };
-    return statusMap[status] || status;
+    return statusConfig[status] || { text: status, class: '' };
 }
 
 // 顯示錯誤訊息
 function displayError(message) {
     const errorHtml = `<div class="error-message">${message}</div>`;
     document.getElementById(currentTab + '-info').innerHTML = errorHtml;
+}
+
+// 初始化座位查詢功能
+function initializeSeatsSearch() {
+    const searchButton = document.getElementById('search-seats-btn');
+    searchButton.addEventListener('click', () => {
+        const flightNumber = document.getElementById('flight-number').value.toUpperCase();
+        searchSeatAvailability(flightNumber);
+    });
+}
+
+// 查詢座位資訊
+async function searchSeatAvailability(flightNumber) {
+    if (!flightNumber) return;
+    
+    const resultsContainer = document.getElementById('seats-result');
+    resultsContainer.innerHTML = '<p>查詢中...</p>';
+    
+    try {
+        const data = await tdxAuth.getSeatAvailability(flightNumber);
+        displaySeatAvailability(data);
+    } catch (error) {
+        console.error('查詢座位資訊時發生錯誤:', error);
+        displayError('無法載入座位資訊');
+    }
+}
+
+// 顯示座位資訊
+function displaySeatAvailability(seatData) {
+    const resultsContainer = document.getElementById('seats-result');
+    
+    if (!Array.isArray(seatData) || seatData.length === 0) {
+        resultsContainer.innerHTML = '<p class="no-data">找不到該航班的座位資訊</p>';
+        return;
+    }
+    
+    let html = `
+        <table>
+            <thead>
+                <tr>
+                    <th>航班編號</th>
+                    <th>艙等</th>
+                    <th>剩餘座位數</th>
+                    <th>更新時間</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    seatData.forEach(seat => {
+        html += `
+            <tr>
+                <td>${seat.AirlineID}${seat.FlightNumber}</td>
+                <td>${seat.CabinClass || '-'}</td>
+                <td>${seat.SeatAvailable || '-'}</td>
+                <td>${formatDateTime(seat.UpdateTime)}</td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table>';
+    resultsContainer.innerHTML = html;
 }
 
 // 更新標籤內容
@@ -350,6 +481,11 @@ function updateTabContent() {
             // 清空之前的搜尋結果
             document.getElementById('airline-results').innerHTML = '';
             document.getElementById('airline-code').value = '';
+            break;
+        case 'seats':
+            // 清空之前的搜尋結果
+            document.getElementById('seats-result').innerHTML = '';
+            document.getElementById('flight-number').value = '';
             break;
         case 'weather':
             updateWeatherData();

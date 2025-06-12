@@ -117,8 +117,29 @@ main {
 
 table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     margin-top: 1rem;
+    position: relative;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+tbody tr {
+    transition: background-color 0.2s;
+}
+
+tbody tr:hover {
+    background-color: #f5f5f5;
+}
+
+thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 th, td {
@@ -128,9 +149,41 @@ th, td {
 }
 
 th {
-    background-color: #f8f9fa;
+    background: linear-gradient(to bottom, #4CAF50, #45a049);
+    color: white;
     font-weight: bold;
     white-space: nowrap;
+    text-shadow: 1px 1px 1px rgba(0,0,0,0.2);
+    transition: background-color 0.3s;
+}
+
+tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.date-header {
+    background: linear-gradient(to right, #f0f0f0, #e8e8e8);
+    color: #333;
+    text-align: left;
+    padding: 0.8rem 1rem;
+    position: sticky;
+    top: 53px;
+    z-index: 1;
+    font-weight: bold;
+    border-bottom: 1px solid #ddd;
+    font-size: 1.1em;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.date-header:before {
+    content: '📅';
+    margin-right: 8px;
+    opacity: 0.7;
+}
+
+.tab-content {
+    max-height: 70vh;
+    overflow-y: auto;
 }
 
 .no-data {
@@ -161,7 +214,7 @@ th {
     width: 200px;
 }
 
-#search-btn {
+#search-btn, #search-seats-btn {
     padding: 0.5rem 1rem;
     background-color: #0066cc;
     color: white;
@@ -170,9 +223,100 @@ th {
     cursor: pointer;
 }
 
+#flight-number {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-right: 0.5rem;
+    width: 200px;
+}
+
 .weather-container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 1rem;
     padding: 1rem;
 }
+
+/* 航班狀態樣式 */
+.flight-status {
+    font-weight: bold;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.status-ontime {
+    color: #28a745;
+    background-color: #e8f5e9;
+}
+
+.status-delayed {
+    color: #dc3545;
+    background-color: #ffebee;
+}
+
+.status-boarding {
+    color: #ff9800;
+    background-color: #fff3e0;
+    animation: blink 1s infinite;
+}
+
+.status-departed,
+.status-arrived {
+    color: #0066cc;
+    background-color: #e3f2fd;
+}
+
+.status-cancelled {
+    color: #6c757d;
+    background-color: #f8f9fa;
+    text-decoration: line-through;
+}
+
+.status-checkin {
+    color: #6f42c1;
+    background-color: #f3e9ff;
+}
+
+.status-inflight {
+    color: #0066cc;
+    background-color: #e3f2fd;
+    animation: pulse 2s infinite;
+}
+
+.status-approaching {
+    color: #28a745;
+    background-color: #e8f5e9;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(0.98); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+/* 閃爍動畫 */
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* 表格載入動畫 */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+tbody tr {
+    animation: fadeIn 0.3s ease-out forwards;
+    opacity: 0;
+}
+
+tbody tr:nth-child(1) { animation-delay: 0.1s; }
+tbody tr:nth-child(2) { animation-delay: 0.2s; }
+tbody tr:nth-child(3) { animation-delay: 0.3s; }
+tbody tr:nth-child(4) { animation-delay: 0.4s; }
+tbody tr:nth-child(5) { animation-delay: 0.5s; }

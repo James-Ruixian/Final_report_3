@@ -113,6 +113,13 @@ class TDXAuth {
         }));
     }
 
+    // 取得航班剩餘座位資訊
+    async getSeatAvailability(flightNo) {
+        const url = `https://tdx.transportdata.tw/api/basic/v2/Air/SeatAvailability/Domestic/Flight/${flightNo}?$format=JSON`;
+        const data = await this.fetchWithToken(url);
+        return Array.isArray(data) ? data : [];
+    }
+
     // 將ServiceDays格式化為星期幾
     formatWeekdays(serviceDays) {
         if (!serviceDays) return '-';

@@ -14,8 +14,8 @@
 
     <nav class="airport-selection">
         <button data-airport="TPE" class="airport-btn">桃園國際機場 (TPE)</button>
-        <button data-airport="TSA" class="airport-btn">台北松山機場 (TSA)</button>
-        <button data-airport="KHH" class="airport-btn">高雄小港機場 (KHH)</button>
+        <button data-airport="TSA" class="airport-btn">松山國際機場 (TSA)</button>
+        <button data-airport="KHH" class="airport-btn">高雄國際機場 (KHH)</button>
         <button data-airport="RMQ" class="airport-btn">台中國際機場 (RMQ)</button>
     </nav>
 
@@ -27,20 +27,21 @@
                 <button class="tab-btn active" data-tab="realtime">即時航班資訊</button>
                 <button class="tab-btn" data-tab="schedule">定期航班查詢</button>
                 <button class="tab-btn" data-tab="airline">航空公司搜尋</button>
+                <button class="tab-btn" data-tab="seats">座位查詢</button>
                 <button class="tab-btn" data-tab="weather">天氣資訊</button>
             </div>
 
             <div id="realtime-info" class="tab-content active">
                 <div class="flight-type-selector">
-                    <button class="flight-type-btn active" data-type="arrival">抵達航班</button>
-                    <button class="flight-type-btn" data-type="departure">出發航班</button>
+                    <button class="flight-type-btn active" data-type="arrival">出發航班</button>
+                    <button class="flight-type-btn" data-type="departure">抵達航班</button>
                 </div>
                 <table id="flight-table">
                     <thead>
                         <tr>
                             <th>航班編號</th>
                             <th>航空公司</th>
-                            <th>出發地/目的地</th>
+                            <th>目的地</th>
                             <th>預定時間</th>
                             <th>航廈/登機門</th>
                             <th>狀態</th>
@@ -62,6 +63,14 @@
                     <button id="search-btn">搜尋</button>
                 </div>
                 <div id="airline-results"></div>
+            </div>
+
+            <div id="seats-info" class="tab-content">
+                <div class="search-container">
+                    <input type="text" id="flight-number" placeholder="請輸入航班編號">
+                    <button id="search-seats-btn">查詢座位</button>
+                </div>
+                <div id="seats-result"></div>
             </div>
 
             <div id="weather-info" class="tab-content">
