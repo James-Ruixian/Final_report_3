@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台灣國際機場航班資訊系統</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>台灣國際機場航班資訊系統</h1>
+    </header>
+
+    <nav class="airport-selection">
+        <button data-airport="TPE" class="airport-btn">桃園國際機場 (TPE)</button>
+        <button data-airport="TSA" class="airport-btn">台北松山機場 (TSA)</button>
+        <button data-airport="KHH" class="airport-btn">高雄小港機場 (KHH)</button>
+        <button data-airport="RMQ" class="airport-btn">台中國際機場 (RMQ)</button>
+    </nav>
+
+    <main>
+        <div class="airport-info" id="airport-info">
+            <h2 id="selected-airport">請選擇機場</h2>
+            
+            <div class="function-tabs">
+                <button class="tab-btn active" data-tab="realtime">即時航班資訊</button>
+                <button class="tab-btn" data-tab="schedule">定期航班查詢</button>
+                <button class="tab-btn" data-tab="airline">航空公司搜尋</button>
+                <button class="tab-btn" data-tab="weather">天氣資訊</button>
+            </div>
+
+            <div id="realtime-info" class="tab-content active">
+                <div class="flight-type-selector">
+                    <button class="flight-type-btn active" data-type="arrival">抵達航班</button>
+                    <button class="flight-type-btn" data-type="departure">出發航班</button>
+                </div>
+                <table id="flight-table">
+                    <thead>
+                        <tr>
+                            <th>航班編號</th>
+                            <th>航空公司</th>
+                            <th>出發地/目的地</th>
+                            <th>預定時間</th>
+                            <th>航廈/登機門</th>
+                            <th>狀態</th>
+                        </tr>
+                    </thead>
+                    <tbody id="flight-data">
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="schedule-info" class="tab-content">
+                <h3>定期航班查詢</h3>
+                <!-- 定期航班內容會由 JavaScript 動態填充 -->
+            </div>
+
+            <div id="airline-search" class="tab-content">
+                <div class="search-container">
+                    <input type="text" id="airline-code" placeholder="請輸入航空公司代碼 (例: CI, BR, JL)">
+                    <button id="search-btn">搜尋</button>
+                </div>
+                <div id="airline-results"></div>
+            </div>
+
+            <div id="weather-info" class="tab-content">
+                <div class="weather-container">
+                    <!-- 天氣資訊會由 JavaScript 動態填充 -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
