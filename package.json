@@ -10,5 +10,18 @@
     "express": "^4.18.2",
     "cors": "^2.8.5",
     "node-fetch": "^3.3.2"
-  }
+  },
+  "main": "airlines.js",
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/James-Ruixian/Final_report_3.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/James-Ruixian/Final_report_3/issues"
+  },
+  "homepage": "https://github.com/James-Ruixian/Final_report_3#readme"
 }

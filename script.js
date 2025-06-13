@@ -11,11 +11,32 @@ let currentFlightType = 'arrival';
 const AUTO_UPDATE_INTERVAL = 5 * 60 * 1000; // 5分鐘
 let autoUpdateTimer = null;
 
-// 初始化頁面
 document.addEventListener('DOMContentLoaded', () => {
     initializeAirportButtons();
     initializeTabButtons();
-    initializeFlightTypeButtons();
+
+    // 初始化出發/抵達按鈕
+    const flightButtons = document.querySelectorAll('.flight-btn');
+    flightButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            flightButtons.forEach(btn => {
+                btn.classList.remove('active');
+            });
+            button.classList.add('active');
+            currentFlightType = button.dataset.type;
+            if (currentAirport) {
+                updateFlightData();
+            }
+        });
+    });
+
+    // 設置預設選中的按鈕
+    const defaultButton = document.querySelector('.flight-btn[data-type="departure"]');
+    if (defaultButton) {
+        defaultButton.classList.add('active');
+        currentFlightType = 'departure';
+    }
+    
     initializeAirlineSearch();
     initializeSeatsSearch();
     startAutoUpdate();
@@ -64,17 +85,6 @@ function initializeTabButtons() {
     });
 }
 
-// 航班類型按鈕初始化
-function initializeFlightTypeButtons() {
-    const flightTypeButtons = document.querySelectorAll('.flight-type-btn');
-    flightTypeButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            currentFlightType = button.dataset.type;
-            updateActiveFlightType(button);
-            updateFlightData();
-        });
-    });
-}
 
 // 航空公司搜尋初始化
 function initializeAirlineSearch() {
@@ -209,16 +219,21 @@ function formatDate(dateTimeStr) {
 function groupFlightsByDate(flights) {
     // 先排序航班
     flights.sort((a, b) => {
-        const timeA = a.ScheduleDepartureTime || a.ScheduleArrivalTime;
-        const timeB = b.ScheduleDepartureTime || b.ScheduleArrivalTime;
+        const timeA = currentFlightType === 'arrival' 
+            ? (a.EstimatedArrivalTime || a.ScheduleArrivalTime)
+            : (a.EstimatedDepartureTime || a.ScheduleDepartureTime);
+        const timeB = currentFlightType === 'arrival'
+            ? (b.EstimatedArrivalTime || b.ScheduleArrivalTime)
+            : (b.EstimatedDepartureTime || b.ScheduleDepartureTime);
         return new Date(timeA) - new Date(timeB);
     });
 
     const groups = {};
     flights.forEach(flight => {
-        const date = flight.ScheduleDepartureTime ? 
-            formatDate(flight.ScheduleDepartureTime) :
-            formatDate(flight.ScheduleArrivalTime);
+        const time = currentFlightType === 'arrival'
+            ? (flight.EstimatedArrivalTime || flight.ScheduleArrivalTime)
+            : (flight.EstimatedDepartureTime || flight.ScheduleDepartureTime);
+        const date = formatDate(time);
         if (!groups[date]) {
             groups[date] = [];
         }
@@ -250,6 +265,8 @@ function displayFlightData(flights) {
         return;
     }
 
+    console.log('Flights data:', flights);
+
     const groupedFlights = groupFlightsByDate(flights);
     
     Object.entries(groupedFlights).forEach(([date, dateFlights]) => {
@@ -258,19 +275,26 @@ function displayFlightData(flights) {
         dateHeader.innerHTML = `<td colspan="6" class="date-header">${date} 月/日</td>`;
         tableBody.appendChild(dateHeader);
 
-        // 添加該日期的航班資料
+            // 添加該日期的航班資料
         dateFlights.forEach(flight => {
             if (!flight.AirlineID || !flight.FlightNumber) return;
             
             const row = document.createElement('tr');
-            const status = getFlightStatus(flight.FlightStatus);
+            const status = getFlightStatus(currentFlightType === 'arrival' ? flight.ArrivalRemark : flight.DepartureRemark);
+            
+            const scheduleTime = currentFlightType === 'arrival'
+                ? (flight.EstimatedArrivalTime || flight.ScheduleArrivalTime)
+                : (flight.EstimatedDepartureTime || flight.ScheduleDepartureTime);
+
+            const airport = currentFlightType === 'arrival' 
+                ? flight.DepartureAirportID 
+                : flight.ArrivalAirportID;
+
             row.innerHTML = `
                 <td>${flight.AirlineID}${flight.FlightNumber}</td>
                 <td>${airlines[flight.AirlineID] || '-'} (${flight.AirlineID || '-'})</td>
-                <td>${airports[flight.ArrivalAirportID] || '-'} (${flight.ArrivalAirportID || '-'})</td>
-                <td>${currentFlightType === 'arrival' ? 
-                    formatDateTime(flight.ScheduleArrivalTime) : 
-                    formatDateTime(flight.ScheduleDepartureTime)}</td>
+                <td>${airports[airport] || '-'} (${airport || '-'})</td>
+                <td>${formatDateTime(scheduleTime)}</td>
                 <td>${flight.Terminal || '-'}/${flight.Gate || '-'}</td>
                 <td class="flight-status ${status.class}">${status.text}</td>
             `;
@@ -384,16 +408,17 @@ function getFlightStatus(status) {
     if (!status) return { text: '-', class: '' };
     
     const statusConfig = {
-        'Scheduled': { text: '準時', class: 'status-ontime' },
-        'Delayed': { text: '延誤', class: 'status-delayed' },
-        'Boarding': { text: '登機中', class: 'status-boarding' },
-        'Departed': { text: '已起飛', class: 'status-departed' },
-        'Arrived': { text: '已抵達', class: 'status-arrived' },
-        'Cancelled': { text: '取消', class: 'status-cancelled' },
-        'Last Call': { text: '最後登機', class: 'status-boarding' },
-        'Check-in': { text: '報到中', class: 'status-checkin' },
-        'In Flight': { text: '飛行中', class: 'status-inflight' },
-        'Approaching': { text: '即將抵達', class: 'status-approaching' }
+        '準點': { text: '準時', class: 'status-ontime' },
+        '延誤': { text: '延誤', class: 'status-delayed' },
+        '登機中': { text: '登機中', class: 'status-boarding' },
+        '起飛': { text: '已起飛', class: 'status-departed' },
+        '到達': { text: '已抵達', class: 'status-arrived' },
+        '取消': { text: '取消', class: 'status-cancelled' },
+        '最後登機': { text: '最後登機', class: 'status-boarding' },
+        '報到': { text: '報到中', class: 'status-checkin' },
+        '飛行中': { text: '飛行中', class: 'status-inflight' },
+        '接近中': { text: '即將抵達', class: 'status-approaching' },
+        '時間更改': { text: '時間異動', class: 'status-delayed' }
     };
     return statusConfig[status] || { text: status, class: '' };
 }

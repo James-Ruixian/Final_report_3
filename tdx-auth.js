@@ -2,20 +2,31 @@
 class TDXAuth {
     constructor() {
         this.tokenUrl = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token';
-        this.clientId = 'B11217009-358c5dea-425c-4a24';
-        this.clientSecret = '2280ae77-5d86-4db1-9b65-4f5b376ca8c5';
+        this.clientId = 'b11217009-792f13b3-e103-4f24';
+        this.clientSecret = 'f1230f36-7c3d-4964-8a30-0482e8c8756d';
         this.accessToken = null;
         this.tokenExpireTime = null;
+        
+        // 立即獲取 token
+        this.ensureValidToken().catch(err => {
+            console.error('初始化 token 失敗:', err);
+        });
     }
 
-    // 取得 Access Token
-    async getAccessToken() {
-        // 如果現有的 token 還沒過期，直接返回
-        if (this.accessToken && this.tokenExpireTime && Date.now() < this.tokenExpireTime) {
-            return this.accessToken;
+    // 檢查並更新 Access Token
+    async ensureValidToken() {
+        // 如果沒有 token 或 token 即將過期（5分鐘內），就重新取得
+        if (!this.accessToken || !this.tokenExpireTime || Date.now() >= this.tokenExpireTime - 300000) {
+            await this.refreshToken();
         }
+        return this.accessToken;
+    }
 
+    // 重新取得 Access Token
+    async refreshToken() {
+        console.log('正在更新 TDX token...');
         try {
+            console.log('發送 token 請求...');
             const response = await fetch(this.tokenUrl, {
                 method: 'POST',
                 headers: {
@@ -38,6 +49,7 @@ class TDXAuth {
             this.accessToken = data.access_token;
             this.tokenExpireTime = Date.now() + (data.expires_in - 300) * 1000;
             
+            console.log('成功獲取新的 token，將在', new Date(this.tokenExpireTime).toLocaleString(), '過期');
             return this.accessToken;
         } catch (error) {
             console.error('TDX 認證錯誤:', error);
@@ -48,7 +60,7 @@ class TDXAuth {
     // 包裝 API 請求，自動處理 token
     async fetchWithToken(url, options = {}) {
         try {
-            const token = await this.getAccessToken();
+            const token = await this.ensureValidToken();
             
             // 合併請求選項
             const fetchOptions = {
@@ -59,13 +71,22 @@ class TDXAuth {
                 }
             };
 
+            console.log('發送 API 請求到:', url);
             const response = await fetch(url, fetchOptions);
             
             if (!response.ok) {
+                // 如果是 401 錯誤，嘗試重新取得 token 並重試
+                if (response.status === 401) {
+                    console.log('Token 已過期，正在更新...');
+                    await this.refreshToken();
+                    return this.fetchWithToken(url, options);
+                }
                 throw new Error(`API 請求失敗: ${response.status}`);
             }
 
-            return await response.json();
+            const data = await response.json();
+            console.log('收到 API 響應:', typeof data === 'object' ? `包含 ${Array.isArray(data) ? data.length : '0'} 條記錄` : '無數據');
+            return data;
         } catch (error) {
             console.error('API 請求錯誤:', error);
             throw error;
@@ -74,32 +95,33 @@ class TDXAuth {
 
     // 取得航班到站資料
     async getArrivalFlights(airport) {
-        const url = `https://tdx.transportdata.tw/api/basic/v2/Air/FIDS/Flight?$format=JSON`;
+        const url = `https://tdx.transportdata.tw/api/basic/v2/Air/FIDS/Flight?$format=JSON&$select=AirlineID,FlightNumber,DepartureAirportID,ArrivalAirportID,ScheduleArrivalTime,ActualArrivalTime,EstimatedArrivalTime,Terminal,Gate,ArrivalRemark&$filter=ArrivalAirportID eq '${airport}'&$orderby=ScheduleArrivalTime desc`;
         const data = await this.fetchWithToken(url);
-        if (!Array.isArray(data)) return [];
-        return data.filter(flight => 
-            flight.ArrivalAirportID === airport && 
-            flight.DepartureAirportID !== airport);
+        console.log('Arrival API Response:', data);
+        if (data && Array.isArray(data.Records)) {
+            return data.Records;
+        }
+        return [];
     }
 
     // 取得航班離站資料
     async getDepartureFlights(airport) {
-        const url = `https://tdx.transportdata.tw/api/basic/v2/Air/FIDS/Flight?$format=JSON`;
+        const url = `https://tdx.transportdata.tw/api/basic/v2/Air/FIDS/Flight?$format=JSON&$select=AirlineID,FlightNumber,DepartureAirportID,ArrivalAirportID,ScheduleDepartureTime,ActualDepartureTime,EstimatedDepartureTime,Terminal,Gate,DepartureRemark&$filter=DepartureAirportID eq '${airport}'&$orderby=ScheduleDepartureTime desc`;
         const data = await this.fetchWithToken(url);
-        if (!Array.isArray(data)) return [];
-        return data.filter(flight => 
-            flight.DepartureAirportID === airport && 
-            flight.ArrivalAirportID !== airport);
+        console.log('Departure API Response:', data);
+        if (data && Array.isArray(data.Records)) {
+            return data.Records;
+        }
+        return [];
     }
 
     // 取得航空公司航班資料
     async getAirlineFlights(airport, airline) {
-        const url = `https://tdx.transportdata.tw/api/basic/v2/Air/FIDS/Flight?$format=JSON`;
-        const data = await this.fetchWithToken(url);
-        if (!Array.isArray(data)) return [];
-        return data.filter(flight => 
-            flight.AirlineID === airline &&
-            (flight.DepartureAirportID === airport || flight.ArrivalAirportID === airport));
+        const departureData = await this.getDepartureFlights(airport);
+        const arrivalData = await this.getArrivalFlights(airport);
+        const allFlights = [...departureData, ...arrivalData];
+        
+        return allFlights.filter(flight => flight.AirlineID === airline);
     }
 
     // 取得定期航班資料

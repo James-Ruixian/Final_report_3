@@ -57,6 +57,34 @@ main {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+.flight-type-btns {
+    display: flex;
+    justify-content: flex-start;
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.flight-btn {
+    padding: 0.8rem 1.5rem;
+    border: 2px solid #0066cc;
+    border-radius: 4px;
+    background-color: white;
+    color: #0066cc;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.flight-btn:hover {
+    background-color: #0066cc;
+    color: white;
+}
+
+.flight-btn.active {
+    background-color: #0066cc;
+    color: white;
+}
+
 .function-tabs {
     display: flex;
     gap: 1rem;
@@ -95,24 +123,6 @@ main {
 
 .tab-content.active {
     display: block;
-}
-
-.flight-type-selector {
-    margin-bottom: 1.5rem;
-}
-
-.flight-type-btn {
-    padding: 0.5rem 1rem;
-    border: 1px solid #0066cc;
-    background-color: white;
-    color: #0066cc;
-    cursor: pointer;
-    margin-right: 0.5rem;
-}
-
-.flight-type-btn.active {
-    background-color: #0066cc;
-    color: white;
 }
 
 table {

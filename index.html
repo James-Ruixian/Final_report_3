@@ -19,10 +19,16 @@
         <button data-airport="RMQ" class="airport-btn">台中國際機場 (RMQ)</button>
     </nav>
 
+
     <main>
         <div class="airport-info" id="airport-info">
             <h2 id="selected-airport">請選擇機場</h2>
             
+            <div class="flight-type-btns">
+                <button class="flight-btn" data-type="departure">抵達航班</button>
+                <button class="flight-btn" data-type="arrival">出發航班</button>
+            </div>
+
             <div class="function-tabs">
                 <button class="tab-btn active" data-tab="realtime">即時航班資訊</button>
                 <button class="tab-btn" data-tab="schedule">定期航班查詢</button>
@@ -32,10 +38,6 @@
             </div>
 
             <div id="realtime-info" class="tab-content active">
-                <div class="flight-type-selector">
-                    <button class="flight-type-btn active" data-type="arrival">出發航班</button>
-                    <button class="flight-type-btn" data-type="departure">抵達航班</button>
-                </div>
                 <table id="flight-table">
                     <thead>
                         <tr>
